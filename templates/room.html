@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            margin: 0 auto;
+            max-width: 800px;
+            padding: 0 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            border: 2px solid #dedede;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .darker {
+            border-color: #ccc;
+            background-color: #ddd;
+        }
+        
+        .container::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+        
+        .container img {
+            float: left;
+            max-width: 60px;
+            width: 100%;
+            margin-right: 20px;
+            border-radius: 50%;
+        }
+        
+        .container img.right {
+            float: right;
+            margin-left: 20px;
+            margin-right: 0;
+        }
+        
+        .time-right {
+            float: right;
+            color: #aaa;
+        }
+        
+        .time-left {
+            float: left;
+            color: #999;
+        }
+        
+        input[type=text], select {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        input[type=submit] {
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        input[type=submit]:hover {
+            background-color: #45a049;
+        }
+        
+        .message-box {
+            border-radius: 5px;
+            background-color: #f2f2f2;
+            padding: 20px;
+        }
+        
+        .room-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+    <script
+        src="https://code.jquery.com/jquery-3.1.1.min.js"
+        integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+        crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="room-info">
+        <h2>{{room}} - DjChat</h2>
+        <div>
+            <span>Viewing in: <strong>{{language}}</strong></span>
+        </div>
+    </div>
+    
+    <div id="display">
+        <!-- Messages will appear here -->
+    </div>
+    
+    <div class="message-box">
+        <form id="post-form">
+            {% csrf_token %}
+            <input type="hidden" name="username" id="username" value="{{username}}"/>
+            <input type="hidden" name="room_id" id="room_id" value="{{room_details.id}}"/>
+            <input type="hidden" name="language" id="language" value="{{language}}"/>
+            <input type="text" name="message" id="message" placeholder="Type your message here..." />
+            <input type="submit" value="Send">
+        </form>
+    </div>
+    
+    <script>
+    $(document).ready(function(){
+        // Load messages immediately on page load
+        loadMessages();
+        
+        // Set up interval to refresh messages
+        setInterval(loadMessages, 1000);
+        
+        function loadMessages() {
+            // The current user's language preference
+            const userLanguage = "{{language}}";
+            
+            $.ajax({
+                type: 'GET',
+                url: "/getMessages/{{room}}/",
+                data: {
+                    language: userLanguage // Pass the user's language preference
+                },
+                success: function(response){
+                    $("#display").empty();
+                    for (var key in response.messages) {
+                        var msg = response.messages[key];
+                        
+                        // Each message is already in the user's preferred language
+                        var temp = "<div class='container darker'>" +
+                                  "<b>" + msg.user + "</b>" +
+                                  "<p>" + msg.value + "</p>" +
+                                  "<span class='time-left'>" + msg.date + "</span>" +
+                                  "</div>";
+                        
+                        $("#display").append(temp);
+                    }
+                    
+                    // Scroll to bottom after loading messages
+                    $("html, body").scrollTop($(document).height());
+                },
+                error: function(response){
+                    console.error('An error occurred while fetching messages');
+                }
+            });
+        }
+        
+        // Handle message submission
+        $("#post-form").on('submit', function(e){
+            e.preventDefault();
+            
+            if ($("#message").val().trim() === "") {
+                return; // Don't send empty messages
+            }
+            
+            $.ajax({
+                type: 'POST',
+                url: '/send',
+                data: {
+                    username: $('#username').val(),
+                    room_id: $('#room_id').val(),
+                    message: $('#message').val(),
+                    language: $('#language').val(),
+                    csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val(),
+                },
+                success: function(data){
+                    // Clear input field after sending
+                    $("#message").val('');
+                    // Reload messages immediately
+                    loadMessages();
+                },
+                error: function(error) {
+                    console.error('Error sending message:', error);
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>
